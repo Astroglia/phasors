@@ -3,25 +3,53 @@ const {dialog} = require('electron').remote;
 let { PythonShell } = require('python-shell');
 var Plotly = require('plotly.js-dist');
 
-var folderPath; //path to folder.
+var dataPath = 'pyfolder/zorin_testData080511_oneElec.mat'; //path to folder.
 
-function Bananas()
+var filteredData;
+var x_axis_time;
+
+function loadData()
 {
+    let folderOptions = {
+        mode: 'binary',
+        pythonOptions: ['-u'], // get print results in real-time
+        args: [dataPath]
+      };
+
+    var pyshell = new PythonShell('pyfolder/LoadAndProcessData.py', folderOptions);
+
+    pyshell.stdout.on('data', function (output_data) {
+        string_arr = output_data.toString()
+        string_arr = string_arr.split(",")
+        console.log(string_arr)
+        filteredData = string_arr.map(Number)
+        //x_axis_time = Array.from(output_data[1])
+        console.log(filteredData.length)
+
+        x_axis_time = Array(filteredData.length).keys();
+        graphFilteredData(filteredData)
+    });
+}
+
+function graphFilteredData(data)
+{
+    var graphstyleproperties = {
+        xaxis: { linecolor: '#460037', linewidth: 1, mirror: true },
+        yaxis: { linecolor: '#460037', linewidth: 1, mirror: true },
+        plot_bgcolor: '#9789a4',
+        paper_bgcolor: '#9789a4'
+      }
+
+    var organized_data = { x: x_axis_time, y: filteredData, type: 'scatter' }
     var trace1 = {
         x: [1, 2, 3, 4],
         y: [10, 15, 13, 17],
-        type: 'scatter'
+        type: 'line'
       };
       
-      var trace2 = {
-        x: [1, 2, 3, 4],
-        y: [16, 5, 11, 9],
-        type: 'scatter'
-      };
-      
-      var data = [trace1, trace2];
-      
-      Plotly.newPlot('plot-1', data);
+      var data_final = [organized_data]
+      var plot1Div = document.getElementById("plot1");
+      Plotly.newPlot(plot1Div, data_final , graphstyleproperties);
 }
 
 function getFolder() 
@@ -84,8 +112,9 @@ function processImages(imageType="RIBBON")
 function createListeners()
 {
 document.getElementById('selectDataButton').addEventListener('click', () => {
-    Bananas()
+    loadData()
 })
+
 } //end createListeners()
 
 $( document ).ready(function()
