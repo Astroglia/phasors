@@ -2,54 +2,102 @@ var $ = global.jQuery = require('jquery');
 const {dialog} = require('electron').remote;
 let { PythonShell } = require('python-shell');
 var Plotly = require('plotly.js-dist');
+var scale = require('scale-number-range');
 
 var dataPath = 'pyfolder/zorin_testData080511_oneElec.mat'; //path to folder.
 
 var filteredData;
 var x_axis_time;
+var Fs = 1000
 
 function loadData()
 {
     let folderOptions = {
         mode: 'binary',
         pythonOptions: ['-u'], // get print results in real-time
-        args: [dataPath]
+        args: [dataPath, Fs]
       };
 
     var pyshell = new PythonShell('pyfolder/LoadAndProcessData.py', folderOptions);
 
     pyshell.stdout.on('data', function (output_data) {
-        string_arr = output_data.toString()
+        var string_arr = output_data.toString()
         string_arr = string_arr.split(",")
-        console.log(string_arr)
         filteredData = string_arr.map(Number)
-        //x_axis_time = Array.from(output_data[1])
+        for( i = 0; i < filteredData.length; i++)
+        {
+            filteredData[i] = filteredData[i] || 0
+        }
         console.log(filteredData.length)
-
         x_axis_time = Array(filteredData.length).keys();
-        graphFilteredData(filteredData)
+        var filtered_div = document.getElementById("filterDivPlot");
+        graphData(filtered_div, x_axis_time,filteredData, 'Filtered Data', 'Time (s)', 'Amplitude' )
     });
 }
 
-function graphFilteredData(data)
+function hilbertTransform()
+{
+    // scale(number, oldMin, oldMax, newMin, newMax);
+    filtered_scaled = []
+    max_filtered = Math.max(...filteredData)
+    min_filtered = Math.min(...filteredData)
+    for( i = 0; i < filteredData.length; i++)
+    {
+        filtered_scaled.push( scale(filteredData[i], min_filtered, max_filtered, -180, 180))
+    }
+    let inputOptions = {
+        mode: 'binary',
+        pythonOptions: ['-u'],
+        args: [ filteredData]
+    }
+    var py = new PythonShell('pyfolder/hilbertTransform.py', inputOptions)
+    py.stdout.on('data', function (data) {
+        dataString = data.toString().split(",")
+        hilbertInstantPhase = dataString.map(Number)
+        var hilbert_div = document.getElementById("hilbertDivPlot");
+        twoPlotHilbertX = [x_axis_time, x_axis_time]
+        twoPlotHilbertY = [hilbertInstantPhase, filtered_scaled]
+        graphData(hilbert_div, twoPlotHilbertX, twoPlotHilbertY, 'Instantaneous Phase: Hilbert Transform', 'Time (s)', 'Phase & Scaled Amplitude', twoPlot=true )
+    });
+}
+  
+function graphData(div, data_x, data_y, title, x_title, y_title, twoPlot =false)
 {
     var graphstyleproperties = {
         xaxis: { linecolor: '#460037', linewidth: 1, mirror: true },
         yaxis: { linecolor: '#460037', linewidth: 1, mirror: true },
-        plot_bgcolor: '#9789a4',
-        paper_bgcolor: '#9789a4'
-      }
-
-    var organized_data = { x: x_axis_time, y: filteredData, type: 'scatter' }
-    var trace1 = {
-        x: [1, 2, 3, 4],
-        y: [10, 15, 13, 17],
-        type: 'line'
-      };
-      
-      var data_final = [organized_data]
-      var plot1Div = document.getElementById("plot1");
-      Plotly.newPlot(plot1Div, data_final , graphstyleproperties);
+        plot_bgcolor: '#e1dde6',
+        paper_bgcolor: '#e1dde6',
+        title: { text: title,
+                 font: { family: 'Courier New, monospace', size: 25},
+          },
+        xaxis: { title: { text: x_title,
+              font: { family: 'Courier New, monospace', size: 18 }
+            } },
+          yaxis: { title: { text: y_title,
+              font: { family: 'Courier New, monospace', size: 18 }
+            }
+          }
+    }
+    if(twoPlot)
+    {
+        var organized_data = { x: data_x[0], y: data_y[0], type: 'scatter',   mode: 'markers',
+        marker: { size: 3, color: 'black'},  
+        }
+        var organized_data2 = { x: data_x[1], y: data_y[1], type: 'scatter',   mode: 'markers',
+        marker: { size: 2, color: 'blue'},  
+        }
+          var data_final = [organized_data, organized_data2]
+          Plotly.newPlot(div, data_final , graphstyleproperties, {responsive: true});
+    }
+    else
+    {
+        var organized_data = { x: data_x, y: data_y, type: 'scatter',   mode: 'markers',
+        marker: { size: 3, color: [0]},  
+        }
+          var data_final = [organized_data]
+          Plotly.newPlot(div, data_final , graphstyleproperties, {responsive: true});
+    }
 }
 
 function getFolder() 
@@ -60,59 +108,13 @@ function getFolder()
     console.log(folderPath.toString())
 }
 
-function processImages(imageType="RIBBON")
-{
-    let folderOptions = {
-        mode: 'text',
-        pythonOptions: ['-u'], // get print results in real-time
-       // scriptPath: 'path/to/my/scripts',
-        args: [folderPath, imageType] // ### argv[1] = folderpath, argv[2] = imagetype, argv[0] is the python script itself, for some reason.
-      };
-
-    var pyshell = new PythonShell('pyfolder/processFile.py', folderOptions);
-  
-
-    var checkprocessing = false;
-
-    pyshell.on('message', function (message) 
-    {
-    // received a message sent from the Python script (a simple "print" statement
-    var div = document.getElementById('terminalExtraContentDiv');
-    var processingDiv = document.getElementById('processingDiv');
-    var blockCursor = document.getElementById('blockCursor')
-
-    if(message == "PROCESSING") {
-        checkprocessing = true
-        message = "Processing first image..."
-    }
-    if(checkprocessing) {
-        processingDiv.innerHTML = message;
-        div.appendChild(processingDiv)
-        processingDiv.append(blockCursor);
-    } else {
-        div.innerHTML += message;
-        div.appendChild(document.getElementById('blockCursor'));
-        div.innerHTML += "<br>";
-    }
-    console.log(message);
-    });
-
-    // end the input stream and allow the process to exit
-    pyshell.end(function (err) 
-    {
-        if (err)
-        {
-            throw err;
-    };
-
-    console.log('finished');
-});
-}
-
 function createListeners()
 {
 document.getElementById('selectDataButton').addEventListener('click', () => {
     loadData()
+})
+document.getElementById('processDataButton').addEventListener('click', () => {
+    hilbertTransform()
 })
 
 } //end createListeners()

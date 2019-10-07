@@ -9,7 +9,7 @@ function createWindow() {
             nodeIntegration: true
         }
     } )
-    //window.setMenuBarVisibility(false) // get rid of menu bar.
+    window.setMenuBarVisibility(false) // get rid of menu bar.
     window.loadFile('index.html')
 }
 

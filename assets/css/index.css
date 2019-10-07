@@ -1,6 +1,6 @@
 #body-background
 {
-    background:#9789a4;
+    background:#e1dde6;
 }
 
 html, body {
@@ -12,7 +12,7 @@ html, body {
 {
     font-family: monospace; font-size: 15px; font-style: normal; font-variant: normal; font-weight: 700; line-height: 26.4px;
     /*width: 50%; */
-    color: #9789a4;
+    color: #ffffff;
     background-color: #460037;
 }
 
@@ -22,5 +22,5 @@ html, body {
 
 .btn:hover {
   background-color: #870069;
-  color: #9789a4;
+  color: #ffffff;
 }

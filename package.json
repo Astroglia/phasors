@@ -16,6 +16,7 @@
     "bootstrap": "^4.3.1",
     "jquery": "^3.4.1",
     "plotly.js-dist": "^1.49.5",
-    "python-shell": "^1.0.8"
+    "python-shell": "^1.0.8",
+    "scale-number-range": "^1.0.3"
   }
 }
