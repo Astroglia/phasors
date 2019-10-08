@@ -8,9 +8,14 @@ var dataPath = 'pyfolder/zorin_testData080511_oneElec.mat'; //path to folder.
 
 var filteredData;
 var filteredDataArr = []; //handling large amounts of data - the python script can only push a certain amount of data to node at a time (~arr size 3288), so handle that by pushing to array.
+var filteredDataDiv;
 var x_axis_time;
-var x_axis_time_arr = []; //handling large amounts of data
+var x_axis_time_arr = []; //same as ^
 var Fs = 1000 //Todo:: get from user.
+
+var processedDataHolder = []; // array of arrays, each array is like filteredData.
+var processedDataDivs = []; //corresponding divs of processedDataHolder divs.
+var iterator_position = 0; // keep track of where we are.
 
 function loadData()
 {
@@ -21,6 +26,7 @@ function loadData()
       };
 
     var pyshell = new PythonShell('pyfolder/LoadAndProcessData.py', folderOptions);
+    // TODO:: move pyfolder to script options.
 
     pyshell.stdout.on('data', function (output_data) {
         var string_arr = output_data.toString()
@@ -29,15 +35,19 @@ function loadData()
         for( i = 0; i < filteredData.length; i++)
         {
             filteredData[i] = filteredData[i] || 0
+            filteredData[0] = 0 //WTF python-shell???
         }
         filteredDataArr.push(filteredData)
-        x_axis_time = Array(filteredData.length).keys();
+        x_axis_time = Array(filteredData.length).keys(); //Todo:: this is incorrect.
         x_axis_time_arr.push(x_axis_time)
     });
     pyshell.end(function (err,code,signal) 
     {
-        var filtered_div = document.getElementById("filterDivPlot");
-        graphData(filtered_div, x_axis_time[0],filteredDataArr[0], 'Filtered Data', 'Time (s)', 'Amplitude' )
+        filteredDataDiv = document.getElementById("filterDivPlot");
+        graphData(filteredDataDiv, x_axis_time[0],filteredDataArr[0], 'Filtered Data', 'Time (s)', 'Amplitude' )
+
+        // create the x axis iterator for the plots.
+        createXIterator();
     });
 }
 
@@ -54,7 +64,7 @@ function hilbertTransform()
     let inputOptions = {
         mode: 'binary',
         pythonOptions: ['-u'],
-        args: [ filteredData]
+        args: [ filteredData ]
     }
     var py = new PythonShell('pyfolder/hilbertTransform.py', inputOptions)
     py.stdout.on('data', function (data) {
@@ -104,6 +114,43 @@ function graphData(div, data_x, data_y, title, x_title, y_title, twoPlot =false)
           var data_final = [organized_data]
           Plotly.newPlot(div, data_final , graphstyleproperties, {responsive: true});
     }
+}
+
+function createXIterator()
+{
+    var forwardIterator = document.getElementById("forwardButton");
+    var backwardIterator = document.getElementById("backwardButton");
+    forwardIterator.innerHTML="Forward";
+    backwardIterator.innerHTML="Backward";
+    forwardIterator.removeAttribute("hidden");
+    backwardIterator.removeAttribute("hidden");
+
+    forwardIterator.addEventListener('click', () => {
+        if( (iterator_position+1) >= filteredData.length)
+        {
+
+        }
+        else
+        {
+            iterator_position = iterator_position + 1
+            graphData(filteredDataDiv, x_axis_time[iterator_position],filteredDataArr[iterator_position], 'Filtered Data', 'Time (s)', 'Amplitude' )
+        }
+    })
+    backwardIterator.addEventListener('click', ()=> {
+        if( (iterator_position - 1) <= 0)
+        {
+
+        }
+        else
+        {
+            iterator_position = iterator_position - 1
+            graphData(filteredDataDiv, x_axis_time[iterator_position],filteredDataArr[iterator_position], 'Filtered Data', 'Time (s)', 'Amplitude' )
+        }
+    })
+}
+function iterate_plot()
+{
+
 }
 
 function getFolder() 
