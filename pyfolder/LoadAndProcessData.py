@@ -11,7 +11,7 @@ def main():
         local_fields = list(f['zorinData'])
     local_fields = np.array(local_fields)
 
-    local_fields = local_fields[0, 0:3000] ##TODO change when done
+    local_fields = local_fields[0, 0:8000] ##TODO change when done
     Fs = float(sys.argv[2])
     lower_band = 7/(.5*Fs) #Todo bring in lower/upper/Fs from user.
     upper_band = 25/(.5*Fs)
@@ -23,6 +23,8 @@ def main():
     filtered_data = filtered_data.astype(float)
     x_axis = np.arange(0, filtered_data.shape[0], 1/Fs)
     final_data = [filtered_data, x_axis]
+
+    ##array length output is limited to 3288, so incrementally send output to javascript.
     print(list(filtered_data))
 
 if __name__ == '__main__':

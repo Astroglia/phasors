@@ -7,8 +7,10 @@ var scale = require('scale-number-range');
 var dataPath = 'pyfolder/zorin_testData080511_oneElec.mat'; //path to folder.
 
 var filteredData;
+var filteredDataArr = []; //handling large amounts of data - the python script can only push a certain amount of data to node at a time (~arr size 3288), so handle that by pushing to array.
 var x_axis_time;
-var Fs = 1000
+var x_axis_time_arr = []; //handling large amounts of data
+var Fs = 1000 //Todo:: get from user.
 
 function loadData()
 {
@@ -28,10 +30,14 @@ function loadData()
         {
             filteredData[i] = filteredData[i] || 0
         }
-        console.log(filteredData.length)
+        filteredDataArr.push(filteredData)
         x_axis_time = Array(filteredData.length).keys();
+        x_axis_time_arr.push(x_axis_time)
+    });
+    pyshell.end(function (err,code,signal) 
+    {
         var filtered_div = document.getElementById("filterDivPlot");
-        graphData(filtered_div, x_axis_time,filteredData, 'Filtered Data', 'Time (s)', 'Amplitude' )
+        graphData(filtered_div, x_axis_time[0],filteredDataArr[0], 'Filtered Data', 'Time (s)', 'Amplitude' )
     });
 }
 
@@ -41,7 +47,7 @@ function hilbertTransform()
     filtered_scaled = []
     max_filtered = Math.max(...filteredData)
     min_filtered = Math.min(...filteredData)
-    for( i = 0; i < filteredData.length; i++)
+    for( i = 0; i < filteredData.length; i++) //Scale to -180, 180 so you can see instant phase better.
     {
         filtered_scaled.push( scale(filteredData[i], min_filtered, max_filtered, -180, 180))
     }
@@ -81,10 +87,10 @@ function graphData(div, data_x, data_y, title, x_title, y_title, twoPlot =false)
     }
     if(twoPlot)
     {
-        var organized_data = { x: data_x[0], y: data_y[0], type: 'scatter',   mode: 'markers',
+        var organized_data = { x: data_x[0], y: data_y[0], type: 'scattergl',   mode: 'markers',
         marker: { size: 3, color: 'black'},  
         }
-        var organized_data2 = { x: data_x[1], y: data_y[1], type: 'scatter',   mode: 'markers',
+        var organized_data2 = { x: data_x[1], y: data_y[1], type: 'scattergl',   mode: 'markers',
         marker: { size: 2, color: 'blue'},  
         }
           var data_final = [organized_data, organized_data2]
