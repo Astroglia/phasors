@@ -4,7 +4,7 @@ require('jquery');
 
 function createWindow() {
     window = new BrowserWindow( {
-        width:1600, height: 900, 
+        width:1800, height: 900, 
         webPreferences: {
             nodeIntegration: true
         }

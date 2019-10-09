@@ -11,7 +11,7 @@ def main():
         local_fields = list(f['zorinData'])
     local_fields = np.array(local_fields)
 
-    local_fields = local_fields[0, 0:16000] ##TODO change when done
+    local_fields = local_fields[0, 0:10000] ##TODO change when done
     Fs = float(sys.argv[2])
     lower_band = 7/(.5*Fs) #Todo bring in lower/upper/Fs from user.
     upper_band = 25/(.5*Fs)
