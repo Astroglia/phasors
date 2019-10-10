@@ -10,13 +10,15 @@ var filteredData;
 var filteredDataArr = []; //handling large amounts of data - the python script can only push a certain amount of data to node at a time (~arr size 3288), so handle that by pushing to array.
 var scaledFilteredDataArr = [];
 var filteredDataDiv;
-var x_axis_time;
 var x_axis_time_arr = []; //same as ^
 var Fs = 1000 //Todo:: get from user.
 
-var hilbertPhaseData = []
-var processedDataHolder = []; // array of arrays, each array is like filteredData.
+var hilbertPhaseData = [];
+var peakPhaseData = [];
 var processedDataDivs = []; //corresponding divs of processedDataHolder divs.
+var processedDataTitles = [];
+
+
 var iterator_position = 0; // keep track of where we are.
 
 function loadData()
@@ -80,7 +82,112 @@ function scaleFilteredData()
         scaledFilteredDataArr.push(curr_arr)
     }
 }
-  
+
+function scaleArr(input_arr)
+{
+    var max_filtered = Math.max(...input_arr)
+    var min_filtered = Math.min(...input_arr)
+    final_arr = []
+    for( var i = 0; i < input_arr.length; i++)
+    {
+        final_arr.push( scale( input_arr[i], min_filtered, max_filtered, -180, 180 )  )
+    }
+    return final_arr
+}
+
+function createXIterator()
+{
+    var forwardIterator = document.getElementById("forwardButton");
+    var backwardIterator = document.getElementById("backwardButton");
+    forwardIterator.innerHTML="Forward";
+    backwardIterator.innerHTML="Backward";
+    forwardIterator.removeAttribute("hidden");
+    backwardIterator.removeAttribute("hidden");
+
+    forwardIterator.addEventListener('click', () => {
+        if( (iterator_position+1) >= filteredDataArr.length) { }
+        else
+        {
+            iterator_position = iterator_position + 1
+            graphData(filteredDataDiv, x_axis_time_arr[iterator_position],filteredDataArr[iterator_position], 'Filtered Data', 'Time', 'Amplitude' )
+            batchGraph(iterator_position)
+        }
+    })
+    backwardIterator.addEventListener('click', ()=> {
+        if( (iterator_position - 1) < 0) { }
+        else
+        {
+            iterator_position = iterator_position - 1
+            graphData(filteredDataDiv, x_axis_time_arr[iterator_position],filteredDataArr[iterator_position], 'Filtered Data', 'Time', 'Amplitude' )
+            batchGraph(iterator_position)
+        }
+    })
+}
+
+function getFolder() 
+{
+    folderPath = dialog.showOpenDialog({
+        properties: ['openFile']
+    });
+    console.log(folderPath.toString())
+}
+
+function processInitialData(filePath, graphingDiv, appending_array, plotTitle)
+{
+    let inputOptions = {
+        mode: 'binary',
+        pythonOptions: ['-u'],
+        args: [ filteredDataArr[0] ]
+    }
+    var py = new PythonShell(filePath, inputOptions)
+    py.stdout.on('data', function (output_data) 
+    {
+        var string_arr = output_data.toString().split(",")
+        var phase_estimation = string_arr.map(Number)
+        for( var i = 0; i < phase_estimation.length; i++)
+        {
+            phase_estimation[i] = phase_estimation[i] || 0
+            phase_estimation[0] = 0
+        }
+        appending_array.push(phase_estimation)
+    });
+    py.end(function (err,code,signal) 
+    {
+        processedDataDivs.push(graphingDiv)
+        var twoPlotX = [x_axis_time_arr[0], x_axis_time_arr[0]]
+        scaled_filtered = scaleArr(filteredDataArr[0])
+        var twoPlotY = [appending_array[0], scaled_filtered]
+        graphData(graphingDiv, twoPlotX, twoPlotY, plotTitle, 'Time ', 'Phase & Scaled Amplitude', twoPlot=true )
+    });
+    for(var i = 1; i < filteredDataArr.length; i++)
+    {
+    processRemainingData(filteredDataArr[i], filePath, appending_array)
+    }
+}
+
+// Todo :: sometimes appending gets messed up. Check this.
+function processRemainingData(data_input, filePath, appending_array)
+{
+    let inputOptions = {
+        mode: 'binary',
+        pythonOptions: ['-u'],
+        args: [ data_input ]
+    }
+    var py = new PythonShell(filePath, inputOptions)
+    py.stdout.on('data', function (output_data) 
+    {
+        var string_arr = output_data.toString().split(",")
+        est_phase = string_arr.map(Number)
+        for( var i = 0; i < est_phase.length; i++)
+        {
+            est_phase[i] = est_phase[i] || 0
+            est_phase[0] = 0
+        }
+        appending_array.push(est_phase)
+    });
+}
+
+
 function graphData(div, data_x, data_y, title, x_title, y_title, twoPlot =false)
 {
     var graphstyleproperties = {
@@ -120,112 +227,18 @@ function graphData(div, data_x, data_y, title, x_title, y_title, twoPlot =false)
     }
 }
 
-function createXIterator()
-{
-    var forwardIterator = document.getElementById("forwardButton");
-    var backwardIterator = document.getElementById("backwardButton");
-    forwardIterator.innerHTML="Forward";
-    backwardIterator.innerHTML="Backward";
-    forwardIterator.removeAttribute("hidden");
-    backwardIterator.removeAttribute("hidden");
-
-    forwardIterator.addEventListener('click', () => {
-        if( (iterator_position+1) >= filteredDataArr.length) { }
-        else
-        {
-            iterator_position = iterator_position + 1
-            graphData(filteredDataDiv, x_axis_time_arr[iterator_position],filteredDataArr[iterator_position], 'Filtered Data', 'Time (s)', 'Amplitude' )
-            batchGraph(iterator_position)
-        }
-    })
-    backwardIterator.addEventListener('click', ()=> {
-        if( (iterator_position - 1) < 0) { }
-        else
-        {
-            iterator_position = iterator_position - 1
-            graphData(filteredDataDiv, x_axis_time_arr[iterator_position],filteredDataArr[iterator_position], 'Filtered Data', 'Time (s)', 'Amplitude' )
-            batchGraph(iterator_position)
-        }
-    })
-}
-
+// Todo :: append processed data to an array like this:  all_data = [  hilbert=[  [], [], []  ]   , peak_phase_prediction= ... ]
 function batchGraph(iterator_position)
 {
     for (var i = 0; i < processedDataDivs.length; i++)
     {
         var twoPlotX = [x_axis_time_arr[iterator_position], x_axis_time_arr[iterator_position]]
-        var twoPlotY = [hilbertPhaseData[iterator_position], filteredDataArr[iterator_position]]
-        graphData(processedDataDivs[i], twoPlotX, twoPlotY, 'Instantaneous Phase: Hilbert Transform', 'Time ', 'Phase & Scaled Amplitude', twoPlot=true )
+        var scaled_filtered = scaleArr( filteredDataArr[iterator_position])
+        var twoPlotY = [hilbertPhaseData[iterator_position], scaled_filtered]
+       // var twoPlotY2= [peakPhaseData[iterator_position], scaled_filtered]
+        graphData(processedDataDivs[i], twoPlotX, twoPlotY, processedDataTitles[i], 'Time ', 'Phase & Scaled Amplitude', twoPlot=true )
     }
 }
-
-function getFolder() 
-{
-    folderPath = dialog.showOpenDialog({
-        properties: ['openFile']
-    });
-    console.log(folderPath.toString())
-}
-
-
-
-
-
-
-function hilbertTransform()
-{
-    let inputOptions = {
-        mode: 'binary',
-        pythonOptions: ['-u'],
-        args: [ filteredDataArr[0] ]
-    }
-    var py = new PythonShell('pyfolder/hilbertTransform.py', inputOptions)
-    py.stdout.on('data', function (output_data) 
-    {
-        var string_arr = output_data.toString().split(",")
-        hilbertPhase = string_arr.map(Number)
-        for( var i = 0; i < hilbertPhase.length; i++)
-        {
-            hilbertPhase[i] = hilbertPhase[i] || 0
-            hilbertPhase[0] = 0
-        }
-        hilbertPhaseData.push(hilbertPhase)
-    });
-    py.end(function (err,code,signal) 
-    {
-        var hilbert_div = document.getElementById("hilbertDivPlot");
-        processedDataDivs.push(hilbert_div)
-        twoPlotHilbertX = [x_axis_time_arr[0], x_axis_time_arr[0]]
-        twoPlotHilbertY = [hilbertPhaseData[0], filteredDataArr[0]]
-        graphData(hilbert_div, twoPlotHilbertX, twoPlotHilbertY, 'Instantaneous Phase: Hilbert Transform', 'Time ', 'Phase & Scaled Amplitude', twoPlot=true )
-    });
-    for(var i = 1; i < filteredDataArr.length; i++)
-    {
-    processRemainingData(filteredDataArr[i])
-    }
-}
-
-function processRemainingData(data_input)
-{
-    let inputOptions = {
-        mode: 'binary',
-        pythonOptions: ['-u'],
-        args: [ data_input ]
-    }
-    var py = new PythonShell('pyfolder/hilbertTransform.py', inputOptions)
-    py.stdout.on('data', function (output_data) 
-    {
-        var string_arr = output_data.toString().split(",")
-        hilbertPhase = string_arr.map(Number)
-        for( var i = 0; i < hilbertPhase.length; i++)
-        {
-            hilbertPhase[i] = hilbertPhase[i] || 0
-            hilbertPhase[0] = 0
-        }
-        hilbertPhaseData.push(hilbertPhase)
-    });
-}
-
 
 function createListeners()
 {
@@ -233,7 +246,13 @@ document.getElementById('selectDataButton').addEventListener('click', () => {
     loadData()
 })
 document.getElementById('processDataButton').addEventListener('click', () => {
-    hilbertTransform()
+    var hilbertDiv = document.getElementById('hilbertDivPlot')
+    processedDataTitles.push('Hilbert Transform - Unwrapped Phase')
+    processInitialData('pyfolder/hilbertTransform.py', hilbertDiv, hilbertPhaseData , 'Hilbert Transform - Unwrapped Phase.')
+
+    var peaksDiv = document.getElementById('peaksDivPlot')
+    processedDataTitles.push('Phase Prediction: Peak Method')
+    processInitialData('pyfolder/phase_predic_peaks.py', peaksDiv, peakPhaseData, 'Phase Prediction: Peak Method' )
 })
 
 } //end createListeners()
